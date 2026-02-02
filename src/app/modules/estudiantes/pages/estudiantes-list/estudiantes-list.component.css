@@ -1,0 +1,43 @@
+:host ::ng-deep .p-paginator .p-paginator-current {
+    margin-left: auto;
+}
+
+.card {
+    padding: 2rem;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+    background: #ffffff;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+}
+
+/* Responsive Table Styles */
+@media screen and (max-width: 960px) {
+    :host ::ng-deep .p-datatable.p-datatable-customers .p-datatable-thead > tr > th,
+    :host ::ng-deep .p-datatable.p-datatable-customers .p-datatable-tfoot > tr > td {
+        display: none !important;
+    }
+
+    :host ::ng-deep .p-datatable.p-datatable-customers .p-datatable-tbody > tr {
+        border-bottom: 1px solid var(--layer-2);
+        display: block;
+        width: 100%;
+    }
+
+    :host ::ng-deep .p-datatable.p-datatable-customers .p-datatable-tbody > tr > td {
+        text-align: left;
+        display: block;
+        border: 0 none !important;
+        width: 100% !important;
+        float: left;
+        clear: left;
+        
+    }
+
+    :host ::ng-deep .p-datatable.p-datatable-customers .p-datatable-tbody > tr > td .p-column-title {
+        padding: .4rem;
+        min-width: 30%;
+        display: inline-block;
+        margin: -.4rem 1rem -.4rem -.4rem;
+        font-weight: bold;
+    }
+}

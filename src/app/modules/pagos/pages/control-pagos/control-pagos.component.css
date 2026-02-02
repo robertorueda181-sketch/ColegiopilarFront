@@ -1,0 +1,16 @@
+.badge-tipo {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.875rem;
+}
+
+.badge-tipo.parcial {
+    background-color: #ffd8b2;
+    color: #805b36;
+}
+
+.badge-tipo.total {
+    background-color: #c8e6c9;
+    color: #256029;
+}
