@@ -1,9 +1,10 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms'; 
 import { EstudianteService } from '../../../../services/estudiante.service';
 import { TarifaService } from '../../../../services/tarifa.service';
 import { ReglaService } from '../../../../services/regla.service';
+import { PeriodoService, PeriodoEscolar } from '../../../periodo/services/periodo.service';
 import { Estudiante } from '../../../../models/estudiante.model';
 import { Tarifa } from '../../../../models/tarifa.model';
 import { Regla } from '../../../../models/regla.model';
@@ -23,6 +24,12 @@ import { TagModule } from 'primeng/tag';
       <h2>Simulador de Tarifas por Estudiante</h2>
       
       <div class="grid">
+        <div class="col-12">
+            <div class="flex flex-column gap-2 mb-4">
+                <label class="font-bold">Periodo Académico</label>
+                <p-select [options]="periodosOptions()" [(ngModel)]="selectedPeriodo" optionLabel="label" optionValue="value" placeholder="Seleccione un periodo" styleClass="w-full"></p-select>
+            </div>
+        </div>
         <div class="col-12 md:col-6">
             <div class="flex flex-column gap-2 mb-4">
                 <label class="font-bold">Seleccionar Estudiante</label>
@@ -42,7 +49,7 @@ import { TagModule } from 'primeng/tag';
         
         <div class="flex justify-content-between mb-3">
             <span>Monto Base ({{selectedTarifa.nombre}})</span>
-            <span class="font-bold text-900">{{selectedTarifa.montoBase | currency:'PEN'}}</span>
+            <span class="font-bold text-900">{{selectedTarifa.monto | currency:'PEN'}}</span>
         </div>
 
         <p-divider></p-divider>
@@ -74,12 +81,23 @@ import { TagModule } from 'primeng/tag';
   `
 })
 export class CalculoCuotasComponent implements OnInit {
+  private periodoService = inject(PeriodoService);
+  
   estudiantes = signal<any[]>([]);
   tarifas = signal<Tarifa[]>([]);
   reglas = signal<Regla[]>([]);
+  periodos = this.periodoService.periodos;
+
+  periodosOptions = computed(() => {
+    return this.periodos().map(p => ({
+        label: p.nombre,
+        value: p
+    }));
+  });
 
   selectedStudent: any | null = null;
   selectedTarifa: Tarifa | null = null;
+  selectedPeriodo: any | null = null;
 
   constructor(
       private estudianteService: EstudianteService,
@@ -89,6 +107,7 @@ export class CalculoCuotasComponent implements OnInit {
 
   ngOnInit() {
       this.cargarDatos();
+      this.periodoService.loadPeriodos();
   }
 
   cargarDatos() {
@@ -122,7 +141,7 @@ export class CalculoCuotasComponent implements OnInit {
 
   finalAmount = computed(() => {
       if (!this.selectedTarifa) return 0;
-      let total = this.selectedTarifa.montoBase;
+      let total = this.selectedTarifa.monto;
 
       this.appliedRules().forEach(rule => {
           if (rule.tipoDescuento === 'SOLES') {

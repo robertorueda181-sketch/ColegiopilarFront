@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { map, tap, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
+import { AppConfigService } from '../../../services/app-config.service';
 
 export interface PeriodoEscolar {
   id: string;        // UUID from API
@@ -25,7 +26,8 @@ interface PeriodoResponse {
 })
 export class PeriodoService {
   private http = inject(HttpClient);
-  private apiUrl = 'https://localhost:53676/periodosescolares';
+  private configService = inject(AppConfigService);
+  private apiUrl = `${this.configService.apiBaseUrl}/periodosescolares`;
 
   periodos = signal<PeriodoEscolar[]>([]);
 

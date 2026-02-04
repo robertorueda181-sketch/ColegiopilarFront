@@ -41,38 +41,7 @@
                         Apellidos <p-sortIcon field="apellidos"></p-sortIcon>
                     </div>
                 </th>
-                <th pSortableColumn="grado" style="min-width: 10rem">
-                    <div class="flex align-items-center">
-                        Grado <p-sortIcon field="grado"></p-sortIcon>
-                        <p-columnFilter field="grado" matchMode="equals" display="menu" [showMatchModes]="false" [showOperator]="false" [showAddButton]="false" class="ml-auto">
-                            <ng-template pTemplate="filter" let-value let-filter="filterCallback">
-                                <p-select [ngModel]="value" [options]="grados()" (onChange)="filter($event.value)" placeholder="Seleccione" [style]="{'min-width': '12rem'}">
-                                    <ng-template let-option pTemplate="item">
-                                        <div class="inline-block vertical-align-middle">
-                                            <span class="ml-1 mt-1">{{ option.label }}</span>
-                                        </div>
-                                    </ng-template>
-                                </p-select>
-                            </ng-template>
-                        </p-columnFilter>
-                    </div>
-                </th>
-                <th pSortableColumn="seccion" style="min-width: 10rem">
-                    <div class="flex align-items-center">
-                        Sección <p-sortIcon field="seccion"></p-sortIcon>
-                        <p-columnFilter field="seccion" matchMode="equals" display="menu" [showMatchModes]="false" [showOperator]="false" [showAddButton]="false" class="ml-auto">
-                            <ng-template pTemplate="filter" let-value let-filter="filterCallback">
-                                <p-select [ngModel]="value" [options]="secciones()" (onChange)="filter($event.value)" placeholder="Seleccione" [style]="{'min-width': '12rem'}">
-                                    <ng-template let-option pTemplate="item">
-                                        <div class="inline-block vertical-align-middle">
-                                            <span class="ml-1 mt-1">{{ option.label }}</span>
-                                        </div>
-                                    </ng-template>
-                                </p-select>
-                            </ng-template>
-                        </p-columnFilter>
-                    </div>
-                </th>
+                
                 <th pSortableColumn="fechaNacimiento" style="min-width: 15rem">
                         F. Nacimiento
                 </th >
@@ -91,12 +60,7 @@
                 <td>
                     {{estudiante.apellidos}}
                 </td>
-                <td>
-                    {{estudiante.grado}}
-                </td>
-                <td>
-                    {{estudiante.seccion}}
-                </td>
+   
                 <td>
                     {{estudiante.fechaNacimiento | date:'dd/MM/yyyy'}}
                 </td>

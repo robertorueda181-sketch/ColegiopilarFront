@@ -1,26 +1,24 @@
-import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
 import { Tarifa } from '../models/tarifa.model';
+import { AppConfigService } from './app-config.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class TarifaService {
-  private tarifas: Tarifa[] = [
-    { id: 1, nombre: 'Matrícula 2026', anio: 2026, montoBase: 400 },
-    { id: 2, nombre: 'Mensualidad Marzo 2026', anio: 2026, montoBase: 550 },
-    { id: 3, nombre: 'Mensualidad Abril 2026', anio: 2026, montoBase: 550 },
-  ];
+  private http = inject(HttpClient);
+  private configService = inject(AppConfigService);
+  private apiUrl = `${this.configService.apiBaseUrl}/tarifas`;
 
   constructor() { }
 
   getTarifas(): Observable<Tarifa[]> {
-    return of(this.tarifas);
+    return this.http.get<Tarifa[]>(this.apiUrl);
   }
 
   addTarifa(tarifa: Tarifa): Observable<Tarifa> {
-    tarifa.id = this.tarifas.length + 1;
-    this.tarifas.push(tarifa);
-    return of(tarifa);
+    return this.http.post<Tarifa>(this.apiUrl, tarifa);
   }
 }

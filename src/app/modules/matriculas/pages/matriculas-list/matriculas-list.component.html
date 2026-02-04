@@ -1,0 +1,118 @@
+<div class="card">
+    <div class="flex flex-column md:flex-row md:justify-content-between md:align-items-center mb-4 gap-2">
+        <h2 class="m-0">Gestión de Matrículas</h2>
+        <div class="flex align-items-center gap-2">
+            <span class="p-float-label">
+                <p-select 
+                    [options]="periodoService.periodos()" 
+                    [(ngModel)]="selectedPeriodoId" 
+                    optionLabel="nombre" 
+                    optionValue="anio"
+                    (onChange)="onPeriodoChange()"
+                    placeholder="Seleccione Periodo"
+                    [style]="{'min-width': '14rem'}">
+                </p-select>
+                <label>Periodo Académico</label>
+            </span>
+        </div>
+    </div>
+
+    <p-table 
+        #dt1 
+        [value]="matriculas()" 
+        dataKey="id"
+        [rows]="10" 
+        [showCurrentPageReport]="true" 
+        [rowsPerPageOptions]="[10,25,50]" 
+        [loading]="loading()" 
+        [paginator]="true" 
+        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} matrículas"
+        [globalFilterFields]="['student.dni', 'student.nombres', 'student.apellidos', 'grado', 'seccion', 'nivel']"
+        [tableStyle]="{'min-width': '60rem'}">
+        
+        <ng-template pTemplate="caption">
+            <div class="flex justify-content-between align-items-center">
+                <span class="p-input-icon-left">
+                    <i class="pi pi-search"></i>
+                    <input pInputText type="text" [(ngModel)]="searchValue" (input)="onGlobalFilter(dt1, $event)" placeholder="Buscar estudiante" />
+                </span>
+                <button pButton label="Limpiar" class="p-button-outlined" icon="pi pi-filter-slash" (click)="clear(dt1)"></button>
+            </div>
+        </ng-template>
+
+        <ng-template pTemplate="header">
+            <tr>
+                <th pSortableColumn="student.dni">DNI <p-sortIcon field="student.dni"></p-sortIcon></th>
+                <th pSortableColumn="student.apellidos">Apellidos y Nombres <p-sortIcon field="student.apellidos"></p-sortIcon></th>
+                <th pSortableColumn="grado" style="min-width: 10rem">
+                    <div class="flex align-items-center">
+                        Grado <p-sortIcon field="grado"></p-sortIcon>
+                        <p-columnFilter field="grado" matchMode="equals" display="menu" [showMatchModes]="false" [showOperator]="false" [showAddButton]="false" class="ml-auto">
+                            <ng-template pTemplate="filter" let-value let-filter="filterCallback">
+                                <p-select [ngModel]="value" [options]="grados()" (onChange)="filter($event.value)" placeholder="Seleccione" [style]="{'min-width': '12rem'}">
+                                    <ng-template let-option pTemplate="item">
+                                        <div class="inline-block vertical-align-middle">
+                                            <span class="ml-1 mt-1">{{ option.label }}</span>
+                                        </div>
+                                    </ng-template>
+                                </p-select>
+                            </ng-template>
+                        </p-columnFilter>
+                    </div>
+                </th>
+                <th pSortableColumn="seccion" style="min-width: 10rem">
+                    <div class="flex align-items-center">
+                        Sección <p-sortIcon field="seccion"></p-sortIcon>
+                        <p-columnFilter field="seccion" matchMode="equals" display="menu" [showMatchModes]="false" [showOperator]="false" [showAddButton]="false" class="ml-auto">
+                            <ng-template pTemplate="filter" let-value let-filter="filterCallback">
+                                <p-select [ngModel]="value" [options]="secciones()" (onChange)="filter($event.value)" placeholder="Seleccione" [style]="{'min-width': '12rem'}">
+                                    <ng-template let-option pTemplate="item">
+                                        <div class="inline-block vertical-align-middle">
+                                            <span class="ml-1 mt-1">{{ option.label }}</span>
+                                        </div>
+                                    </ng-template>
+                                </p-select>
+                            </ng-template>
+                        </p-columnFilter>
+                    </div>
+                </th>
+                <th pSortableColumn="nivel" style="min-width: 10rem">
+                    <div class="flex align-items-center">
+                        Nivel <p-sortIcon field="nivel"></p-sortIcon>
+                        <p-columnFilter field="nivel" matchMode="equals" display="menu" [showMatchModes]="false" [showOperator]="false" [showAddButton]="false" class="ml-auto">
+                            <ng-template pTemplate="filter" let-value let-filter="filterCallback">
+                                <p-select [ngModel]="value" [options]="niveis()" (onChange)="filter($event.value)" placeholder="Seleccione" [style]="{'min-width': '12rem'}">
+                                    <ng-template let-option pTemplate="item">
+                                        <div class="inline-block vertical-align-middle">
+                                            <span class="ml-1 mt-1">{{ option.label }}</span>
+                                        </div>
+                                    </ng-template>
+                                </p-select>
+                            </ng-template>
+                        </p-columnFilter>
+                    </div>
+                </th>
+                <th pSortableColumn="fechaMatricula">Fecha <p-sortIcon field="fechaMatricula"></p-sortIcon></th>
+                <th pSortableColumn="estado">Estado <p-sortIcon field="estado"></p-sortIcon></th>
+            </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-matricula>
+            <tr>
+                <td>{{matricula.student?.dni}}</td>
+                <td>{{matricula.student?.apellidos}}, {{matricula.student?.nombres}}</td>
+                <td>{{matricula.grado}}</td>
+                <td>{{matricula.seccion}}</td>
+                <td>{{matricula.nivel}}</td>
+                <td>{{matricula.fechaMatricula | date:'dd/MM/yyyy'}}</td>
+                <td>
+                    <p-tag [value]="matricula.estado" [severity]="matricula.estado === 'ACTIVA' ? 'success' : 'warn'"></p-tag>
+                </td>
+            </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+            <tr>
+                <td colspan="7">No se encontraron matrículas para el periodo seleccionado.</td>
+            </tr>
+        </ng-template>
+    </p-table>
+</div>

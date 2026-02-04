@@ -3,12 +3,16 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { Regla } from '../models/regla.model';
+import { GrupoRegla, GrupoReglaListDTO } from '../models/grupo-regla.model';
+import { AppConfigService } from './app-config.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ReglaService {
-  private apiUrl = 'https://localhost:53676/reglas';
+  private apiUrl = '';
+  private grupoReglaUrl = '';
+  private grupoReglaListUrl = '';
 
   // Mock data as fallback if API fails (since localhost might not be running)
   private mockReglas: Regla[] = [
@@ -38,7 +42,11 @@ export class ReglaService {
     }
   ];
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient, private configService: AppConfigService) {
+      this.apiUrl = `${this.configService.apiBaseUrl}/reglas`;
+      this.grupoReglaUrl = `${this.configService.apiBaseUrl}/gruporegla`;
+      this.grupoReglaListUrl = `${this.configService.apiBaseUrl}/gruporegla-with-matriculas`;
+  }
 
   getReglas(): Observable<Regla[]> {
     return this.http.get<Regla[]>(this.apiUrl).pipe(
@@ -53,5 +61,13 @@ export class ReglaService {
     // In a real scenario: return this.http.post<Regla>(this.apiUrl, regla);
     this.mockReglas.push({ ...regla, id: crypto.randomUUID() });
     return of(regla);
+  }
+
+  upsertGrupoRegla(grupo: GrupoRegla): Observable<any> {
+      return this.http.post(`${this.grupoReglaUrl}/upsert`, grupo);
+  }
+
+  getGruposReglaWithMatriculas(): Observable<GrupoReglaListDTO[]> {
+      return this.http.get<GrupoReglaListDTO[]>(this.grupoReglaListUrl);
   }
 }

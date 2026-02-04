@@ -3,14 +3,17 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Estudiante } from '../models/estudiante.model';
 import { map } from 'rxjs/operators';
+import { AppConfigService } from './app-config.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class EstudianteService {
-  private apiUrl = 'https://localhost:53676/estudiantes';
+  private apiUrl = '';
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient, private configService: AppConfigService) { 
+      this.apiUrl = `${this.configService.apiBaseUrl}/estudiantes`;
+  }
 
   getEstudiantes(): Observable<Estudiante[]> {
     return this.http.get<Estudiante[]>(this.apiUrl).pipe(

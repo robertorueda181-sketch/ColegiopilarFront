@@ -22,6 +22,10 @@ export const routes: Routes = [
       { 
         path: 'periodos', 
         loadChildren: () => import('./modules/periodo/periodo.routes').then(m => m.PERIODO_ROUTES) 
+      },
+      { 
+        path: 'matriculas', 
+        loadChildren: () => import('./modules/matriculas/matriculas.routes').then(m => m.MATRICULAS_ROUTES) 
       }
     ]
   }
