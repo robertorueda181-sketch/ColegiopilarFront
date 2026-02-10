@@ -58,13 +58,27 @@ export class ReglaService {
   }
 
   addRegla(regla: Regla): Observable<Regla> {
-    // In a real scenario: return this.http.post<Regla>(this.apiUrl, regla);
-    this.mockReglas.push({ ...regla, id: crypto.randomUUID() });
-    return of(regla);
+    return this.http.post<Regla>(this.apiUrl, regla);
+  }
+
+  updateRegla(id: number | string, regla: Regla): Observable<Regla> {
+    return this.http.put<Regla>(`${this.apiUrl}/${id}`, regla);
+  }
+
+  deleteRegla(id: number | string): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/${id}`);
   }
 
   upsertGrupoRegla(grupo: GrupoRegla): Observable<any> {
       return this.http.post(`${this.grupoReglaUrl}/upsert`, grupo);
+  }
+
+  getGrupoReglaById(id: number): Observable<GrupoRegla> {
+      return this.http.get<GrupoRegla>(`${this.grupoReglaUrl}/${id}`);
+  }
+
+  deleteGrupoRegla(id: number): Observable<any> {
+      return this.http.delete(`${this.grupoReglaUrl}/${id}`);
   }
 
   getGruposReglaWithMatriculas(): Observable<GrupoReglaListDTO[]> {
