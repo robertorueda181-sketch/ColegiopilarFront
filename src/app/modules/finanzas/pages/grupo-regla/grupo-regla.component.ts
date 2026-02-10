@@ -15,9 +15,10 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { MessageService, ConfirmationService } from 'primeng/api';
 import { TagModule } from 'primeng/tag';
 import { MultiSelectModule } from 'primeng/multiselect';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
 
 @Component({
   selector: 'app-grupo-regla',
@@ -31,12 +32,14 @@ import { MultiSelectModule } from 'primeng/multiselect';
       SelectModule,
       ToastModule,
       TagModule,
-      MultiSelectModule
+      MultiSelectModule,
+      ConfirmDialogModule
   ],
-  providers: [MessageService],
+  providers: [MessageService, ConfirmationService],
   template: `
     <div class="card">
       <p-toast></p-toast>
+      <p-confirmDialog></p-confirmDialog>
       
       <!-- VIEW MODE: LIST -->
       <div *ngIf="viewMode() === 'list'">
@@ -69,6 +72,7 @@ import { MultiSelectModule } from 'primeng/multiselect';
                       <th>Regla</th>
                       <th>Tipo</th>
                       <th>Matriculados</th>
+                      <th>Acciones</th>
                   </tr>
               </ng-template>
               <ng-template pTemplate="body" let-grupo>
@@ -81,6 +85,10 @@ import { MultiSelectModule } from 'primeng/multiselect';
                             - [{{ m.dni }}] {{ m.nombres }} {{ m.apellidos }}
                         </div>
                         <span *ngIf="!grupo.matriculados || grupo.matriculados.length === 0" class="text-500 font-italic">No hay estudiantes</span>
+                      </td>
+                      <td>
+                          <button pButton icon="pi pi-pencil" class="p-button-rounded p-button-text p-button-warning mr-2" (click)="editGrupo(grupo)"></button>
+                          <button pButton icon="pi pi-trash" class="p-button-rounded p-button-text p-button-danger" (click)="deleteGrupo(grupo)"></button>
                       </td>
                   </tr>
               </ng-template>
@@ -176,12 +184,14 @@ export class GrupoReglaComponent implements OnInit {
   selectedReglaId: string | number | null = null;
   observacion: string = '';
   selectedMatriculas: any[] = []; // Changed to any[]
+  currentGrupoId: number = 0; // 0 for new
 
   constructor(
       public periodoService: PeriodoService,
       private reglaService: ReglaService,
       private matriculaService: MatriculaService,
-      private messageService: MessageService
+      private messageService: MessageService,
+      private confirmationService: ConfirmationService
   ) {
        effect(() => {
           // Auto select active period when entering form mode or when periods load
@@ -220,10 +230,15 @@ export class GrupoReglaComponent implements OnInit {
   }
 
   switchToCreate() {
-      this.viewMode.set('form');
+      this.resetForm();
+  }
+
+  resetForm() {
       this.selectedMatriculas = [];
       this.observacion = '';
       this.selectedReglaId = null;
+      this.currentGrupoId = 0;
+      // Effect will select active;
       // Trigger effect to select period if needed
   }
 
@@ -268,7 +283,7 @@ export class GrupoReglaComponent implements OnInit {
 
       const payload: GrupoRegla = {
           // Backend might treat 0 as new
-          id: 0, 
+          id: this.currentGrupoId, 
           reglaId: this.selectedReglaId!,
           periodoId: this.selectedPeriodoId!, // Using the ID (UUID/String)
           observacion: this.observacion,
@@ -284,6 +299,69 @@ export class GrupoReglaComponent implements OnInit {
           error: (err) => {
               this.messageService.add({severity:'error', summary:'Error', detail:'No se pudo guardar'});
               console.error(err);
+          }
+      });
+  }
+
+  editGrupo(grupo: GrupoReglaListDTO) {
+      if(!grupo.grupoReglaId) return;
+      
+      this.reglaService.getGrupoReglaById(grupo.grupoReglaId).subscribe({
+          next: (data) => {
+              this.currentGrupoId = data.id || 0;
+              this.selectedPeriodoId = data.periodoId;
+              this.selectedReglaId = data.reglaId;
+              this.observacion = data.observacion;
+              
+              // Switch view
+              this.viewMode.set('form');
+              
+              const periodos = this.periodoService.periodos();
+              const selectedPeriod = periodos.find(p => p.id === this.selectedPeriodoId);
+              
+              if (selectedPeriod) {
+                   this.loading.set(true);
+                   this.matriculaService.getMatriculas(selectedPeriod.anio).subscribe({
+                      next: (matriculas) => {
+                          const processed = matriculas.map(m => ({
+                              ...m,
+                              displayName: `[${m.student?.dni}] ${m.student?.apellidos} ${m.student?.nombres}`
+                          }));
+                          this.matriculas.set(processed);
+                          
+                          // Select the ones in data.matriculaIds
+                          // Ensure we match types (string vs string)
+                          this.selectedMatriculas = processed.filter(pm => data.matriculaIds.some(id => String(id) === String(pm.id)));
+                          
+                          this.loading.set(false);
+                      },
+                      error: () => this.loading.set(false)
+                   });
+              }
+          },
+          error: (err) => {
+               this.messageService.add({severity:'error', summary:'Error', detail:'No se pudo cargar el grupo'});
+               console.error(err);
+          }
+      });
+  }
+
+  deleteGrupo(grupo: GrupoReglaListDTO) {
+      this.confirmationService.confirm({
+          message: `¿Está seguro de eliminar el grupo "${grupo.grupoNombre || 'Sin Nombre'}"?`,
+          header: 'Confirmación de Eliminación',
+          icon: 'pi pi-exclamation-triangle',
+          accept: () => {
+              this.reglaService.deleteGrupoRegla(grupo.grupoReglaId).subscribe({
+                  next: () => {
+                      this.messageService.add({severity:'success', summary:'Eliminado', detail:'Grupo eliminado'});
+                      this.loadGrupos();
+                  },
+                  error: (err) => {
+                      this.messageService.add({severity:'error', summary:'Error', detail:'No se pudo eliminar'});
+                      console.error(err);
+                  }
+              });
           }
       });
   }

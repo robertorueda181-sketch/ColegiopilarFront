@@ -1,5 +1,5 @@
 export interface Regla {
-    id: string;
+    id?: string;
     nombre: string;
     tipoDescuento: 'SOLES' | 'PORCENTAJE';
     valor: number;

@@ -8,28 +8,7 @@ import { Pago } from '../models/pago.model';
 export class PagoService {
   // Mock data
   private pagos: Pago[] = [
-    {
-      id: 1,
-      estudianteId: 1,
-      nombreEstudiante: 'Juan Perez',
-      monto: 150.00,
-      tipo: 'PARCIAL',
-      metodo: 'YAPE',
-      fecha: new Date(),
-      estado: 'VERIFICADO',
-      archivoUrl: 'assets/mock-yape.png'
-    },
-    {
-        id: 2,
-        estudianteId: 2,
-        nombreEstudiante: 'Maria Garcia',
-        monto: 300.00,
-        tipo: 'TOTAL',
-        metodo: 'TRANSFERENCIA',
-        fecha: new Date(),
-        estado: 'PENDIENTE',
-        archivoUrl: 'assets/comprobante.pdf'
-      }
+    
   ];
 
   constructor() { }

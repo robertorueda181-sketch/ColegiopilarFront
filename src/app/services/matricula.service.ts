@@ -34,4 +34,11 @@ export class MatriculaService {
       })
     );
   }
+
+  getByPeriodoWithTarifas(tarifaId: string | number) {
+    const url = `${this.apiUrl}/by-periodo-with-tarifas`;
+    let params = new HttpParams();
+    params = params.set('tarifaId', tarifaId.toString());
+    return this.http.get<any>(url, { params });
+  }
 }

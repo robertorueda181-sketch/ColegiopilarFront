@@ -3,40 +3,83 @@
 <div class="card">
     <div class="flex justify-content-between align-items-center mb-4">
         <h2 class="m-0">Gestión de Pagos</h2>
-        <button pButton label="Nuevo Pago" icon="pi pi-plus" (click)="showDialog()"></button>
     </div>
 
-    <p-table [value]="pagos()" [tableStyle]="{'min-width': '50rem'}">
-        <ng-template pTemplate="header">
-            <tr>
-                <th>Estudiante</th>
-                <th>Monto</th>
-                <th>Tipo</th>
-                <th>Método</th>
-                <th>Fecha</th>
-                <th>Estado</th>
-                <th>Comprobante</th>
-            </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-pago>
-            <tr>
-                <td>{{pago.nombreEstudiante}}</td>
-                <td>{{pago.monto | currency:'PEN'}}</td>
-                <td>
-                    <span [class]="'badge-tipo ' + pago.tipo.toLowerCase()">{{pago.tipo}}</span>
-                </td>
-                <td>{{pago.metodo}}</td>
-                <td>{{pago.fecha | date:'shortDate'}}</td>
-                <td>
-                    <p-tag [value]="pago.estado" [severity]="getSeverity(pago.estado)"></p-tag>
-                </td>
-                <td>
-                    <a *ngIf="pago.archivoUrl" [href]="pago.archivoUrl" target="_blank" pButton icon="pi pi-file" class="p-button-rounded p-button-text p-button-sm"></a>
-                </td>
-            </tr>
-        </ng-template>
-    </p-table>
-</div>
+    <div class="mb-4">
+        <label class="block mb-2">Filtrar por Tarifa</label>
+        <p-select [options]="tarifasOptions()" [(ngModel)]="selectedTarifaId" placeholder="Seleccione tarifa" (ngModelChange)="onTarifaChange($event)" style="width: 300px"></p-select>
+    </div>
+
+    <!-- Column filters are shown inside the table header -->
+
+    <!-- global search and reset will be shown inside the table caption to ensure template ref access -->
+
+        <h3 class="mb-4">Matriculas por Tarifa</h3>
+        
+        <!-- Global Search Bar -->
+        <div class="mb-4">
+            <input pInputText type="text" placeholder="Buscar por DNI, nombre, grado, sección, nivel o monto..." (input)="onSearchChange($event)" class="w-full" />
+        </div>
+
+        <!-- Data Table -->
+        <p-table #dt [value]="filteredMatriculas()" [paginator]="true" [rows]="10" responsiveLayout="scroll" styleClass="p-datatable-striped">
+            <ng-template pTemplate="header">
+                <tr>
+                    <th>Pagar</th>
+                    <th>DNI</th>
+                    <th>Estudiante</th>
+                    <th>
+                        <div class="filter-header" (click)="toggleFilter('grado'); $event.stopPropagation()">
+                            <span>Grado</span>
+                            <i class="pi pi-filter filter-icon" [class.active]="filtroGrado()" [ngClass]="{'text-blue-500': filtroGrado()}"></i>
+                        </div>
+                        <div class="filter-dropdown" *ngIf="showFilterGrado()">
+                            <p-select [options]="gradosOptions()" [ngModel]="filtroGrado()" placeholder="Selecciona Grado" (ngModelChange)="aplicarFiltroSelect($any(null), 'grado', $event); closeFilters()" [showClear]="true" style="width: 100%"></p-select>
+                        </div>
+                    </th>
+                    <th>
+                        <div class="filter-header" (click)="toggleFilter('seccion'); $event.stopPropagation()">
+                            <span>Sección</span>
+                            <i class="pi pi-filter filter-icon" [class.active]="filtroSeccion()" [ngClass]="{'text-blue-500': filtroSeccion()}"></i>
+                        </div>
+                        <div class="filter-dropdown" *ngIf="showFilterSeccion()">
+                            <p-select [options]="seccionesOptions()" [ngModel]="filtroSeccion()" placeholder="Selecciona Sección" (ngModelChange)="aplicarFiltroSelect($any(null), 'seccion', $event); closeFilters()" [showClear]="true" style="width: 100%"></p-select>
+                        </div>
+                    </th>
+                    <th>
+                        <div class="filter-header" (click)="toggleFilter('nivel'); $event.stopPropagation()">
+                            <span>Nivel</span>
+                            <i class="pi pi-filter filter-icon" [class.active]="filtroNivel()" [ngClass]="{'text-blue-500': filtroNivel()}"></i>
+                        </div>
+                        <div class="filter-dropdown" *ngIf="showFilterNivel()">
+                            <p-select [options]="nivelesOptions()" [ngModel]="filtroNivel()" placeholder="Selecciona Nivel" (ngModelChange)="aplicarFiltroSelect($any(null), 'nivel', $event); closeFilters()" [showClear]="true" style="width: 100%"></p-select>
+                        </div>
+                    </th>
+                    <th>Monto Final</th>
+                    <th>Monto Pagado</th>
+                </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-m>
+                <tr [class.falta-pago]="m.pagoMonto < m.montoFinal" [class.pagado]="m.pagoMonto >= m.montoFinal">
+                    <td>
+                        <button pButton icon="pi pi-money-bill" class="p-button-rounded p-button-sm p-button-info" (click)="pagar(m)"></button>
+                    </td>
+                    <td>{{m.dni}}</td>
+                    <td>{{m.nombres}} {{m.apellidos}}</td>
+                    <td>{{m.grado}}</td>
+                    <td>{{m.seccion}}</td>
+                    <td>{{m.nivel}}</td>
+                    <td>{{m.montoFinal | currency:'PEN'}}</td>
+                    <td>{{m.pagoMonto | currency:'PEN'}}</td>
+                </tr>
+            </ng-template>
+        </p-table>
+        
+        <!-- Botón Limpiar Filtros -->
+        <div class="mt-3" *ngIf="filtroGrado() || filtroSeccion() || filtroNivel()">
+            <button pButton label="Limpiar filtros" icon="pi pi-times" class="p-button-sm" (click)="resetFilters()"></button>
+        </div>
+    </div>
 
 <p-dialog header="Registrar Nuevo Pago" [(visible)]="displayDialog" [modal]="true" [style]="{width: '50vw'}" [draggable]="false" [resizable]="false">
     <div class="field grid">

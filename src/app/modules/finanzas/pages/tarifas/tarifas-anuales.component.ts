@@ -2,19 +2,20 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Tarifa } from '../../../../models/tarifa.model';
 import { TarifaService } from '../../../../services/tarifa.service';
-import { PeriodoService } from '../../../periodo/services/periodo.service';
+import { PeriodoService, PeriodoEscolar } from '../../../periodo/services/periodo.service';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { FormsModule } from '@angular/forms';
 import { InputTextModule } from 'primeng/inputtext';
 import { InputNumberModule } from 'primeng/inputnumber';
+import { SelectModule } from 'primeng/select';
 import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-tarifas-anuales',
   standalone: true,
-  imports: [CommonModule, TableModule, ButtonModule, DialogModule, FormsModule, InputTextModule, InputNumberModule],
+  imports: [CommonModule, TableModule, ButtonModule, DialogModule, FormsModule, InputTextModule, InputNumberModule, SelectModule],
   template: `
     <div class="card">
       <div class="flex justify-content-between align-items-center mb-4">
@@ -25,6 +26,7 @@ import { forkJoin } from 'rxjs';
       <p-table [value]="tarifas()">
         <ng-template pTemplate="header">
           <tr>
+            <th>Order</th>
             <th>Concepto</th>
             <th>Año</th>
             <th>Monto Base</th>
@@ -32,6 +34,7 @@ import { forkJoin } from 'rxjs';
         </ng-template>
         <ng-template pTemplate="body" let-tarifa>
           <tr>
+            <td>{{tarifa.order}}</td>
             <td>{{tarifa.nombre}}</td>
             <td>{{tarifa.anio}}</td>
             <td>{{tarifa.monto | currency:'PEN'}}</td>
@@ -44,8 +47,8 @@ import { forkJoin } from 'rxjs';
         <div class="flex flex-column gap-3">
             <div class="formgrid grid flex gap-3">
                 <div class="field col flex flex-column gap-2">
-                    <label>Año Académico</label>
-                    <p-inputNumber [(ngModel)]="anioGeneracion" [useGrouping]="false" class="w-full"></p-inputNumber>
+                    <label>Período Escolar</label>
+                    <p-select [(ngModel)]="periodoSeleccionado" [options]="periodos()" optionLabel="nombre" class="w-full"></p-select>
                 </div>
                 <div class="field col flex flex-column gap-2">
                     <label>Monto Matrícula</label>
@@ -65,6 +68,7 @@ import { forkJoin } from 'rxjs';
                 <p-table [value]="tarifasGeneradas" [scrollable]="true" scrollHeight="300px" styleClass="p-datatable-sm">
                     <ng-template pTemplate="header">
                         <tr>
+                            <th style="width: 80px">Order</th>
                             <th>Concepto</th>
                             <th style="width: 150px">Monto</th>
                             <th style="width: 4rem"></th>
@@ -72,6 +76,9 @@ import { forkJoin } from 'rxjs';
                     </ng-template>
                     <ng-template pTemplate="body" let-tarifa let-index="rowIndex">
                         <tr>
+                            <td>
+                                <p-inputNumber [(ngModel)]="tarifa.order" [useGrouping]="false" class="w-full"></p-inputNumber>
+                            </td>
                             <td>
                                 <input pInputText [(ngModel)]="tarifa.nombre" class="w-full" />
                             </td>
@@ -99,10 +106,11 @@ import { forkJoin } from 'rxjs';
 })
 export class TarifasAnualesComponent implements OnInit {
   tarifas = signal<Tarifa[]>([]);
+  periodos = signal<PeriodoEscolar[]>([]);
   displayDialog = false;
 
   // Variables para la generación
-  anioGeneracion: number = new Date().getFullYear();
+  periodoSeleccionado: PeriodoEscolar | null = null;
   montoMatricula: number = 0;
   montoMensualidad: number = 0;
   
@@ -116,8 +124,22 @@ export class TarifasAnualesComponent implements OnInit {
 
   ngOnInit() {
       this.cargarTarifas();
-      // Asegurarse de cargar periodos si no están en el servicio
-      this.periodoService.loadPeriodos(); 
+      // Cargar periodos y seleccionar el activo por defecto
+      this.periodoService.loadPeriodos();
+      setTimeout(() => {
+        console.log('Periodos cargados', this.periodoService.periodos());
+          const periodos = this.periodoService.periodos();
+          this.periodos.set(periodos);
+          // Seleccionar el período activo por defecto
+          const periodoActivo = periodos.find(p => p.activo);
+          if (periodoActivo) {
+              this.periodoSeleccionado = periodoActivo;
+          }
+      }, 100);
+  }
+
+  comparePeriodos = (p1: PeriodoEscolar | null, p2: PeriodoEscolar | null): boolean => {
+      return p1 && p2 ? p1.id === p2.id : p1 === p2;
   }
 
   cargarTarifas() {
@@ -125,29 +147,37 @@ export class TarifasAnualesComponent implements OnInit {
   }
 
   showDialog() {
-      this.anioGeneracion = new Date().getFullYear();
       this.montoMatricula = 0;
       this.montoMensualidad = 0;
       this.tarifasGeneradas = [];
+      // Asegurar que hay un período seleccionado
+      if (!this.periodoSeleccionado) {
+          const periodos = this.periodoService.periodos();
+          const periodoActivo = periodos.find(p => p.activo);
+          if (periodoActivo) {
+              this.periodoSeleccionado = periodoActivo;
+          }
+      }
       this.displayDialog = true;
   }
 
   generarPropuesta() {
       this.tarifasGeneradas = [];
       
-      const periodos = this.periodoService.periodos();
-      const periodoEncontrado = periodos.find(p => p.anio === this.anioGeneracion);
-
-      if (!periodoEncontrado) {
-          alert(`No se encontró un periodo escolar registrado para el año ${this.anioGeneracion}. Por favor registre el periodo primero.`);
+      if (!this.periodoSeleccionado) {
+          alert('Por favor seleccione un período escolar');
           return;
       }
 
+      const periodoEncontrado = this.periodoSeleccionado;
+      let orderCounter = 1;
+
       // 1. Agregar Matrícula
       this.tarifasGeneradas.push({
-          nombre: `Matrícula ${this.anioGeneracion}`,
-          anio: this.anioGeneracion,
+          nombre: `Matrícula ${periodoEncontrado.anio}`,
+          anio: periodoEncontrado.anio,
           monto: this.montoMatricula,
+          order: orderCounter++,
           periodoEscolarId: periodoEncontrado.id
       });
 
@@ -156,9 +186,10 @@ export class TarifasAnualesComponent implements OnInit {
       
       meses.forEach(mes => {
           this.tarifasGeneradas.push({
-              nombre: `Mensualidad ${mes} ${this.anioGeneracion}`,
-              anio: this.anioGeneracion,
+              nombre: `Mensualidad ${mes} ${periodoEncontrado.anio}`,
+              anio: periodoEncontrado.anio,
               monto: this.montoMensualidad,
+              order: orderCounter++,
               periodoEscolarId: periodoEncontrado.id
           });
       });

@@ -4,4 +4,5 @@ export interface Tarifa {
     monto: number;
     periodoEscolarId: string;
     anio?: number; // Propiedad auxiliar para la UI, si el backend no la devuelve habrá que mapearla
+    order?: number; // Orden de la tarifa
 }

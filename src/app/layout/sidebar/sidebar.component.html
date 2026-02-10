@@ -4,10 +4,27 @@
   </div>
   <ul class="sidebar-menu">
     <li *ngFor="let item of menuItems">
-      <a [routerLink]="item.route" routerLinkActive="active" class="menu-item">
-        <i [class]="item.icon"></i>
-        <span>{{ item.label }}</span>
-      </a>
+      <div *ngIf="!item.submenu" class="menu-item-wrapper">
+        <a [routerLink]="item.route" routerLinkActive="active" class="menu-item">
+          <i [class]="item.icon"></i>
+          <span>{{ item.label }}</span>
+        </a>
+      </div>
+      <div *ngIf="item.submenu" class="menu-item-wrapper">
+        <button class="menu-item-header" (click)="toggleSubmenu(item.label)">
+          <i [class]="item.icon"></i>
+          <span>{{ item.label }}</span>
+          <i class="pi pi-chevron-down" [class.expanded]="isMenuExpanded(item.label)"></i>
+        </button>
+        <ul class="submenu" *ngIf="isMenuExpanded(item.label)">
+          <li *ngFor="let subitem of item.submenu">
+            <a [routerLink]="subitem.route" routerLinkActive="active" class="submenu-item">
+              <i [class]="subitem.icon"></i>
+              <span>{{ subitem.label }}</span>
+            </a>
+          </li>
+        </ul>
+      </div>
     </li>
   </ul>
 </div>
