@@ -2,6 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Regla } from '../../../../models/regla.model';
 import { ReglaService } from '../../../../services/regla.service';
+import { TarifaService } from '../../../../services/tarifa.service';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
@@ -15,23 +16,23 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { MessageService, ConfirmationService } from 'primeng/api';
 
 @Component({
-  selector: 'app-reglas',
-  standalone: true,
-  imports: [
-      CommonModule, 
-      TableModule, 
-      ButtonModule, 
-      DialogModule, 
-      FormsModule, 
-      InputTextModule, 
-      InputNumberModule, 
-      SelectModule, 
-      ToggleSwitchModule,
-      ToastModule,
-      ConfirmDialogModule
+    selector: 'app-reglas',
+    standalone: true,
+    imports: [
+        CommonModule,
+        TableModule,
+        ButtonModule,
+        DialogModule,
+        FormsModule,
+        InputTextModule,
+        InputNumberModule,
+        SelectModule,
+        ToggleSwitchModule,
+        ToastModule,
+        ConfirmDialogModule
     ],
-  providers: [MessageService, ConfirmationService],
-  template: `
+    providers: [MessageService, ConfirmationService],
+    template: `
     <div class="card">
       <p-toast></p-toast>
       <p-confirmDialog></p-confirmDialog>
@@ -46,6 +47,7 @@ import { MessageService, ConfirmationService } from 'primeng/api';
           <tr>
             <th>Nombre</th>
             <th>Tipo</th>
+            <th>Aplica a</th>
             <th>Valor</th>
             <th>Prioridad</th>
             <th>Activa</th>
@@ -56,6 +58,7 @@ import { MessageService, ConfirmationService } from 'primeng/api';
           <tr>
             <td>{{regla.nombre}}</td>
             <td>{{regla.tipoDescuento}}</td>
+            <td><span *ngIf="regla.tipoTarifaDescripcion" class="p-tag p-tag-info">{{regla.tipoTarifaDescripcion}}</span></td>
             <td>{{regla.valor}}</td>
             <td>{{regla.prioridad}}</td>
             <td><i [class]="regla.activa ? 'pi pi-check text-green-500' : 'pi pi-times text-red-500'"></i></td>
@@ -68,27 +71,45 @@ import { MessageService, ConfirmationService } from 'primeng/api';
       </p-table>
     </div>
 
-    <p-dialog [header]="isEditMode ? 'Editar Regla' : 'Nueva Regla'" [(visible)]="displayDialog" [modal]="true" [style]="{width: '400px'}">
+    <p-dialog [header]="isEditMode ? 'Editar Regla' : 'Nueva Regla'" [(visible)]="displayDialog" [modal]="true" [style]="{width: '450px'}">
         <div class="flex flex-column gap-3">
             <div class="flex flex-column gap-2">
                 <label>Nombre</label>
-                <input pInputText [(ngModel)]="currentRegla.nombre" />
+                <input pInputText [(ngModel)]="currentRegla.nombre" class="w-full"/>
             </div>
+            <!-- Tipo Descuento Hidden/Fixed -->
+            <!-- 
             <div class="flex flex-column gap-2">
                 <label>Tipo Descuento</label>
                 <p-select [options]="tiposDescuento" [(ngModel)]="currentRegla.tipoDescuento" optionLabel="label" optionValue="value" [style]="{'width': '100%'}"></p-select>
             </div>
+            -->
+            
             <div class="flex flex-column gap-2">
-                <label>Valor</label>
-                <p-inputNumber [(ngModel)]="currentRegla.valor" class="w-full"></p-inputNumber>
+                <label>Tipo Tarifa (Opcional)</label>
+                <p-select 
+                    [options]="tiposTarifa()" 
+                    [(ngModel)]="currentRegla.tipoTarifaId" 
+                    optionLabel="nombre" 
+                    optionValue="id" 
+                    [style]="{'width': '100%'}"
+                    placeholder="Seleccione (opcional)"
+                    [showClear]="true">
+                </p-select>
+                <small class="text-gray-500">Si se selecciona, el descuento solo aplicará a este tipo de tarifa.</small>
+            </div>
+
+            <div class="flex flex-column gap-2">
+                <label>Valor (Soles)</label>
+                <p-inputNumber [(ngModel)]="currentRegla.valor" class="w-full" mode="currency" currency="PEN" locale="es-PE"></p-inputNumber>
             </div>
             <div class="flex flex-column gap-2">
                 <label>Prioridad</label>
                 <p-inputNumber [(ngModel)]="currentRegla.prioridad" class="w-full"></p-inputNumber>
             </div>
             <div class="flex align-items-center gap-2">
-                <label>Activa</label>
-                <p-toggleswitch [(ngModel)]="currentRegla.activa"></p-toggleswitch>
+                <label>Es Escalonado</label>
+                <p-toggleswitch [(ngModel)]="currentRegla.esEscalonado"></p-toggleswitch>
             </div>
         </div>
         <ng-template pTemplate="footer">
@@ -99,98 +120,114 @@ import { MessageService, ConfirmationService } from 'primeng/api';
   `
 })
 export class ReglasComponent implements OnInit {
-  reglas = signal<Regla[]>([]);
-  displayDialog = false;
-  isEditMode = false;
-  
-  currentRegla: Regla = {
-      nombre: '',
-      tipoDescuento: 'SOLES',
-      valor: 0,
-      prioridad: 0,
-      activa: true
-  };
+    reglas = signal<Regla[]>([]);
+    tiposTarifa = signal<any[]>([]);
+    displayDialog = false;
+    isEditMode = false;
 
-  tiposDescuento = [
-      { label: 'Soles (Monto Fijo)', value: 'SOLES' },
-      { label: 'Porcentaje', value: 'PORCENTAJE' }
-  ];
+    currentRegla: Regla = {
+        nombre: '',
+        tipoDescuento: 'SOLES',
+        valor: 0,
+        prioridad: 0,
+        activa: true,
+        tipoTarifaId: undefined,
+        esEscalonado: false
+    };
 
-  constructor(
-      private reglaService: ReglaService,
-      private messageService: MessageService,
-      private confirmationService: ConfirmationService
-    ) {}
+    constructor(
+        private reglaService: ReglaService,
+        private tarifaService: TarifaService,
+        private messageService: MessageService,
+        private confirmationService: ConfirmationService
+    ) { }
 
-  ngOnInit() {
-    this.cargarReglas();
-  }
+    ngOnInit() {
+        this.cargarReglas();
+        this.cargarTiposTarifa();
+    }
 
-  cargarReglas() {
-      this.reglaService.getReglas().subscribe({
-          next: (data) => this.reglas.set(data),
-          error: (err) => console.error(err)
-      });
-  }
+    cargarReglas() {
+        this.reglaService.getReglas().subscribe({
+            next: (data) => this.reglas.set(data),
+            error: (err) => console.error(err)
+        });
+    }
 
-  showDialog() {
-      this.isEditMode = false;
-      this.currentRegla = {
-          nombre: '',
-          tipoDescuento: 'SOLES',
-          valor: 0,
-          prioridad: 0,
-          activa: true
-      };
-      this.displayDialog = true;
-  }
+    cargarTiposTarifa() {
+        this.tarifaService.getTiposTarifa().subscribe({
+            next: (data) => this.tiposTarifa.set(data),
+            error: (err) => console.error(err)
+        });
+    }
 
-  editRegla(regla: Regla) {
-      this.isEditMode = true;
-      this.currentRegla = { ...regla };
-      this.displayDialog = true;
-  }
+    showDialog() {
+        this.isEditMode = false;
+        this.currentRegla = {
+            nombre: '',
+            tipoDescuento: 'SOLES', // Always SOLES
+            valor: 0,
+            prioridad: 0,
+            activa: true,
+            tipoTarifaId: undefined,
+            esEscalonado: false
+        };
+        this.displayDialog = true;
+    }
 
-  deleteRegla(regla: Regla) {
-      this.confirmationService.confirm({
-          message: `¿Está seguro de eliminar la regla "${regla.nombre}"?`,
-          header: 'Confirmación de Eliminación',
-          icon: 'pi pi-exclamation-triangle',
-          accept: () => {
-              if (regla.id) {
-                  this.reglaService.deleteRegla(regla.id).subscribe({
-                      next: () => {
-                          this.messageService.add({severity:'success', summary:'Eliminado', detail:'Regla eliminada'});
-                          this.cargarReglas();
-                      },
-                      error: (err) => {
-                           this.messageService.add({severity:'error', summary:'Error', detail:'No se pudo eliminar'});
-                      }
-                  });
-              }
-          }
-      });
-  }
+    editRegla(regla: Regla) {
+        this.isEditMode = true;
+        this.currentRegla = {
+            ...regla,
+            tipoDescuento: 'SOLES' // Ensure consistent
+        };
+        this.displayDialog = true;
+    }
 
-  guardarRegla() {
-      if (this.isEditMode && this.currentRegla.id) {
-          this.reglaService.updateRegla(this.currentRegla.id, this.currentRegla).subscribe({
-              next: () => {
-                  this.messageService.add({severity:'success', summary:'Éxito', detail:'Regla actualizada'});
-                  this.displayDialog = false;
-                  this.cargarReglas();
-              },
-              error: () => this.messageService.add({severity:'error', summary:'Error', detail:'No se pudo actualizar'})
-          });
-      } else {
-          this.reglaService.addRegla(this.currentRegla).subscribe({
-              next: () => {
-                  this.messageService.add({severity:'success', summary:'Éxito', detail:'Regla creada'});
-                  this.displayDialog = false;
-                  this.cargarReglas();
-              },
-              error: () => this.messageService.add({severity:'error', summary:'Error', detail:'No se pudo crear'})
-          });
-      }
-  }
+    deleteRegla(regla: Regla) {
+        this.confirmationService.confirm({
+            message: `¿Está seguro de eliminar la regla "${regla.nombre}"?`,
+            header: 'Confirmación de Eliminación',
+            icon: 'pi pi-exclamation-triangle',
+            accept: () => {
+                if (regla.id) {
+                    this.reglaService.deleteRegla(regla.id).subscribe({
+                        next: () => {
+                            this.messageService.add({ severity: 'success', summary: 'Eliminado', detail: 'Regla eliminada' });
+                            this.cargarReglas();
+                        },
+                        error: (err) => {
+                            this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo eliminar' });
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    guardarRegla() {
+        this.currentRegla.activa = true;
+        // Force SOLES just in case
+        this.currentRegla.tipoDescuento = 'SOLES';
+
+        if (this.isEditMode && this.currentRegla.id) {
+            this.reglaService.updateRegla(this.currentRegla.id, this.currentRegla).subscribe({
+                next: () => {
+                    this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Regla actualizada' });
+                    this.displayDialog = false;
+                    this.cargarReglas();
+                },
+                error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo actualizar' })
+            });
+        } else {
+            this.reglaService.addRegla(this.currentRegla).subscribe({
+                next: () => {
+                    this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Regla creada' });
+                    this.displayDialog = false;
+                    this.cargarReglas();
+                },
+                error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo crear' })
+            });
+        }
+    }
 }

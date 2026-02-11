@@ -1,13 +1,12 @@
-import { Component, OnInit, signal, effect, ViewChild } from '@angular/core';
+import { Component, OnInit, signal, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { GrupoRegla, GrupoReglaListDTO } from '../../../../models/grupo-regla.model';
 import { ReglaService } from '../../../../services/regla.service';
 import { PeriodoService } from '../../../periodo/services/periodo.service';
 import { MatriculaService } from '../../../../services/matricula.service';
-import { Matricula } from '../../../../models/matricula.model';
+import { TarifaService } from '../../../../services/tarifa.service';
 import { Regla } from '../../../../models/regla.model';
-import { PrimeNG } from 'primeng/config';
 
 // PrimeNG Imports
 import { TableModule, Table } from 'primeng/table';
@@ -21,22 +20,22 @@ import { MultiSelectModule } from 'primeng/multiselect';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 
 @Component({
-  selector: 'app-grupo-regla',
-  standalone: true,
-  imports: [
-      CommonModule, 
-      FormsModule, 
-      TableModule, 
-      ButtonModule, 
-      InputTextModule, 
-      SelectModule,
-      ToastModule,
-      TagModule,
-      MultiSelectModule,
-      ConfirmDialogModule
-  ],
-  providers: [MessageService, ConfirmationService],
-  template: `
+    selector: 'app-grupo-regla',
+    standalone: true,
+    imports: [
+        CommonModule,
+        FormsModule,
+        TableModule,
+        ButtonModule,
+        InputTextModule,
+        SelectModule,
+        ToastModule,
+        TagModule,
+        MultiSelectModule,
+        ConfirmDialogModule
+    ],
+    providers: [MessageService, ConfirmationService],
+    template: `
     <div class="card">
       <p-toast></p-toast>
       <p-confirmDialog></p-confirmDialog>
@@ -94,7 +93,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
               </ng-template>
               <ng-template pTemplate="emptymessage">
                   <tr>
-                      <td colspan="4">No hay grupos de reglas registrados via endpoint.</td>
+                      <td colspan="5">No hay grupos de reglas registrados via endpoint.</td>
                   </tr>
               </ng-template>
           </p-table>
@@ -108,7 +107,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
           </div>
           
           <div class="formgrid grid">
-              <div class="field col-12 md:col-4">
+              <div class="field col-12 md:col-3">
                   <label for="periodo">Periodo</label>
                   <p-select 
                       id="periodo"
@@ -121,7 +120,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
                       [style]="{'width': '100%'}">
                   </p-select>
               </div>
-              <div class="field col-12 md:col-4">
+              <div class="field col-12 md:col-3">
                   <label for="regla">Regla</label>
                   <p-select 
                       id="regla"
@@ -133,7 +132,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
                       [style]="{'width': '100%'}">
                   </p-select>
               </div>
-               <div class="field col-12 md:col-4">
+               <div class="field col-12 md:col-3">
                   <label for="observacion">Observación</label>
                   <input pInputText id="observacion" [(ngModel)]="observacion" class="w-full" />
               </div>
@@ -170,199 +169,205 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
   `
 })
 export class GrupoReglaComponent implements OnInit {
-  viewMode = signal<'list' | 'form'>('list');
-  
-  // List Mode Data
-  gruposRegla = signal<GrupoReglaListDTO[]>([]);
-  
-  // Form Mode Data
-  reglas = signal<Regla[]>([]);
-  matriculas = signal<any[]>([]); // Changed to any[] to support dynamic property displayName
-  loading = signal<boolean>(false);
+    viewMode = signal<'list' | 'form'>('list');
 
-  selectedPeriodoId: string | number | null = null;
-  selectedReglaId: string | number | null = null;
-  observacion: string = '';
-  selectedMatriculas: any[] = []; // Changed to any[]
-  currentGrupoId: number = 0; // 0 for new
+    // List Mode Data
+    gruposRegla = signal<GrupoReglaListDTO[]>([]);
 
-  constructor(
-      public periodoService: PeriodoService,
-      private reglaService: ReglaService,
-      private matriculaService: MatriculaService,
-      private messageService: MessageService,
-      private confirmationService: ConfirmationService
-  ) {
-       effect(() => {
-          // Auto select active period when entering form mode or when periods load
-          if (this.viewMode() === 'form') {
-               const periodos = this.periodoService.periodos();
-               if (periodos.length > 0 && !this.selectedPeriodoId) {
-                   const activePeriod = periodos.find(p => p.activo);
-                   if (activePeriod) {
-                       this.selectedPeriodoId = activePeriod.id;
-                   } else {
-                       this.selectedPeriodoId = periodos[0].id;
-                   }
-                   setTimeout(() => this.loadMatriculas(), 0);
-               }
-          }
-      });
-  }
+    // Form Mode Data
+    reglas = signal<Regla[]>([]);
+    matriculas = signal<any[]>([]); // Changed to any[] to support dynamic property displayName
+    tiposTarifa = signal<any[]>([]);
+    loading = signal<boolean>(false);
 
-  ngOnInit() {
-      this.loadGrupos();
-      this.reglaService.getReglas().subscribe(data => this.reglas.set(data));
-  }
+    selectedPeriodoId: string | number | null = null;
+    selectedReglaId: string | number | null = null;
+    selectedTipoTarifaId: number | null = null;
+    observacion: string = '';
+    selectedMatriculas: any[] = []; // Changed to any[]
+    currentGrupoId: number = 0; // 0 for new
 
-  loadGrupos() {
-      this.reglaService.getGruposReglaWithMatriculas().subscribe({
-          next: (data) => {
-             // Preprocess for filtering
-             const processed = data.map(g => ({
-                 ...g,
-                 searchMeta: g.matriculados.map(m => `${m.dni} ${m.nombres} ${m.apellidos}`).join(' ')
-             }));
-             this.gruposRegla.set(processed);
-          },
-          error: (err) => console.error('Error loading grupos', err)
-      });
-  }
+    constructor(
+        public periodoService: PeriodoService,
+        private reglaService: ReglaService,
+        private matriculaService: MatriculaService,
+        private tarifaService: TarifaService,
+        private messageService: MessageService,
+        private confirmationService: ConfirmationService
+    ) {
+        effect(() => {
+            // Auto select active period when entering form mode or when periods load
+            if (this.viewMode() === 'form') {
+                const periodos = this.periodoService.periodos();
+                if (periodos.length > 0 && !this.selectedPeriodoId) {
+                    const activePeriod = periodos.find(p => p.activo);
+                    if (activePeriod) {
+                        this.selectedPeriodoId = activePeriod.id;
+                    } else {
+                        this.selectedPeriodoId = periodos[0].id;
+                    }
+                    setTimeout(() => this.loadMatriculas(), 0);
+                }
+            }
+        });
+    }
 
-  switchToCreate() {
-      this.resetForm();
-  }
+    ngOnInit() {
+        this.loadGrupos();
+        this.reglaService.getReglas().subscribe(data => this.reglas.set(data));
+        this.tarifaService.getTiposTarifa().subscribe(data => this.tiposTarifa.set(data));
+    }
 
-  resetForm() {
-      this.selectedMatriculas = [];
-      this.observacion = '';
-      this.selectedReglaId = null;
-      this.currentGrupoId = 0;
-      // Effect will select active;
-      // Trigger effect to select period if needed
-  }
+    loadGrupos() {
+        this.reglaService.getGruposReglaWithMatriculas().subscribe({
+            next: (data) => {
+                // Preprocess for filtering
+                const processed = data.map(g => ({
+                    ...g,
+                    searchMeta: g.matriculados.map(m => `${m.dni} ${m.nombres} ${m.apellidos}`).join(' ')
+                }));
+                this.gruposRegla.set(processed);
+            },
+            error: (err) => console.error('Error loading grupos', err)
+        });
+    }
 
-  loadMatriculas() {
-      if (this.selectedPeriodoId) {
-          this.loading.set(true);
-          const periodos = this.periodoService.periodos();
-          const selectedPeriod = periodos.find(p => p.id === this.selectedPeriodoId);
-          
-          if (selectedPeriod) {
-               // Use 'anio' for matricula fetching assuming endpoint needs it
-               this.matriculaService.getMatriculas(selectedPeriod.anio).subscribe({
-                  next: (data) => {
-                      const processed = data.map(m => ({
-                          ...m,
-                          displayName: `[${m.student?.dni}] ${m.student?.apellidos} ${m.student?.nombres}`
-                      }));
-                      this.matriculas.set(processed);
-                      this.loading.set(false);
-                  },
-                  error: () => this.loading.set(false)
-              });
-          }
-      }
-  }
+    switchToCreate() {
+        this.resetForm();
+        this.viewMode.set('form');
+    }
 
-  onPeriodoChange() {
-      this.selectedMatriculas = [];
-      this.loadMatriculas();
-  }
-  
-  onGlobalFilter(table: Table, event: Event) {
-      table.filterGlobal((event.target as HTMLInputElement).value, 'contains');
-  }
+    resetForm() {
+        this.selectedMatriculas = [];
+        this.observacion = '';
+        this.selectedReglaId = null;
+        this.selectedTipoTarifaId = null;
+        this.currentGrupoId = 0;
+        // Effect will select active;
+        // Trigger effect to select period if needed
+    }
 
-  isValid(): boolean {
-      return !!this.selectedPeriodoId && !!this.selectedReglaId && this.selectedMatriculas.length > 0;
-  }
+    loadMatriculas() {
+        if (this.selectedPeriodoId) {
+            this.loading.set(true);
+            const periodos = this.periodoService.periodos();
+            const selectedPeriod = periodos.find(p => p.id === this.selectedPeriodoId);
 
-  guardar() {
-      if (!this.isValid()) return;
+            if (selectedPeriod) {
+                // Use 'anio' for matricula fetching assuming endpoint needs it
+                this.matriculaService.getMatriculas(selectedPeriod.anio).subscribe({
+                    next: (data) => {
+                        const processed = data.map(m => ({
+                            ...m,
+                            displayName: `[${m.student?.dni}] ${m.student?.apellidos} ${m.student?.nombres}`
+                        }));
+                        this.matriculas.set(processed);
+                        this.loading.set(false);
+                    },
+                    error: () => this.loading.set(false)
+                });
+            }
+        }
+    }
 
-      const payload: GrupoRegla = {
-          // Backend might treat 0 as new
-          id: this.currentGrupoId, 
-          reglaId: this.selectedReglaId!,
-          periodoId: this.selectedPeriodoId!, // Using the ID (UUID/String)
-          observacion: this.observacion,
-          matriculaIds: this.selectedMatriculas.map(m => m.id)
-      };
+    onPeriodoChange() {
+        this.selectedMatriculas = [];
+        this.loadMatriculas();
+    }
 
-      this.reglaService.upsertGrupoRegla(payload).subscribe({
-          next: (res) => {
-              this.messageService.add({severity:'success', summary:'Éxito', detail:'Grupo de regla guardado'});
-              this.viewMode.set('list');
-              this.loadGrupos(); // Refresh list
-          },
-          error: (err) => {
-              this.messageService.add({severity:'error', summary:'Error', detail:'No se pudo guardar'});
-              console.error(err);
-          }
-      });
-  }
+    onGlobalFilter(table: Table, event: Event) {
+        table.filterGlobal((event.target as HTMLInputElement).value, 'contains');
+    }
 
-  editGrupo(grupo: GrupoReglaListDTO) {
-      if(!grupo.grupoReglaId) return;
-      
-      this.reglaService.getGrupoReglaById(grupo.grupoReglaId).subscribe({
-          next: (data) => {
-              this.currentGrupoId = data.id || 0;
-              this.selectedPeriodoId = data.periodoId;
-              this.selectedReglaId = data.reglaId;
-              this.observacion = data.observacion;
-              
-              // Switch view
-              this.viewMode.set('form');
-              
-              const periodos = this.periodoService.periodos();
-              const selectedPeriod = periodos.find(p => p.id === this.selectedPeriodoId);
-              
-              if (selectedPeriod) {
-                   this.loading.set(true);
-                   this.matriculaService.getMatriculas(selectedPeriod.anio).subscribe({
-                      next: (matriculas) => {
-                          const processed = matriculas.map(m => ({
-                              ...m,
-                              displayName: `[${m.student?.dni}] ${m.student?.apellidos} ${m.student?.nombres}`
-                          }));
-                          this.matriculas.set(processed);
-                          
-                          // Select the ones in data.matriculaIds
-                          // Ensure we match types (string vs string)
-                          this.selectedMatriculas = processed.filter(pm => data.matriculaIds.some(id => String(id) === String(pm.id)));
-                          
-                          this.loading.set(false);
-                      },
-                      error: () => this.loading.set(false)
-                   });
-              }
-          },
-          error: (err) => {
-               this.messageService.add({severity:'error', summary:'Error', detail:'No se pudo cargar el grupo'});
-               console.error(err);
-          }
-      });
-  }
+    isValid(): boolean {
+        return !!this.selectedPeriodoId && !!this.selectedReglaId && this.selectedMatriculas.length > 0;
+    }
 
-  deleteGrupo(grupo: GrupoReglaListDTO) {
-      this.confirmationService.confirm({
-          message: `¿Está seguro de eliminar el grupo "${grupo.grupoNombre || 'Sin Nombre'}"?`,
-          header: 'Confirmación de Eliminación',
-          icon: 'pi pi-exclamation-triangle',
-          accept: () => {
-              this.reglaService.deleteGrupoRegla(grupo.grupoReglaId).subscribe({
-                  next: () => {
-                      this.messageService.add({severity:'success', summary:'Eliminado', detail:'Grupo eliminado'});
-                      this.loadGrupos();
-                  },
-                  error: (err) => {
-                      this.messageService.add({severity:'error', summary:'Error', detail:'No se pudo eliminar'});
-                      console.error(err);
-                  }
-              });
-          }
-      });
-  }
+    guardar() {
+        if (!this.isValid()) return;
+
+        const payload: GrupoRegla = {
+            // Backend might treat 0 as new
+            id: this.currentGrupoId,
+            reglaId: this.selectedReglaId!,
+            periodoId: this.selectedPeriodoId!, // Using the ID (UUID/String)
+            observacion: this.observacion,
+            matriculaIds: this.selectedMatriculas.map(m => m.id),
+        };
+
+        this.reglaService.upsertGrupoRegla(payload).subscribe({
+            next: (res) => {
+                this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Grupo de regla guardado' });
+                this.viewMode.set('list');
+                this.loadGrupos(); // Refresh list
+            },
+            error: (err) => {
+                this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo guardar' });
+                console.error(err);
+            }
+        });
+    }
+
+    editGrupo(grupo: GrupoReglaListDTO) {
+        if (!grupo.grupoReglaId) return;
+
+        this.reglaService.getGrupoReglaById(grupo.grupoReglaId).subscribe({
+            next: (data) => {
+                this.currentGrupoId = data.id || 0;
+                this.selectedPeriodoId = data.periodoId;
+                this.selectedReglaId = data.reglaId;
+                this.observacion = data.observacion;
+
+                // Switch view
+                this.viewMode.set('form');
+
+                const periodos = this.periodoService.periodos();
+                const selectedPeriod = periodos.find(p => p.id === this.selectedPeriodoId);
+
+                if (selectedPeriod) {
+                    this.loading.set(true);
+                    this.matriculaService.getMatriculas(selectedPeriod.anio).subscribe({
+                        next: (matriculas) => {
+                            const processed = matriculas.map(m => ({
+                                ...m,
+                                displayName: `[${m.student?.dni}] ${m.student?.apellidos} ${m.student?.nombres}`
+                            }));
+                            this.matriculas.set(processed);
+
+                            // Select the ones in data.matriculaIds
+                            // Ensure we match types (string vs string)
+                            this.selectedMatriculas = processed.filter(pm => data.matriculaIds.some(id => String(id) === String(pm.id)));
+
+                            this.loading.set(false);
+                        },
+                        error: () => this.loading.set(false)
+                    });
+                }
+            },
+            error: (err) => {
+                this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar el grupo' });
+                console.error(err);
+            }
+        });
+    }
+
+    deleteGrupo(grupo: GrupoReglaListDTO) {
+        this.confirmationService.confirm({
+            message: `¿Está seguro de eliminar el grupo "${grupo.grupoNombre || 'Sin Nombre'}"?`,
+            header: 'Confirmación de Eliminación',
+            icon: 'pi pi-exclamation-triangle',
+            accept: () => {
+                this.reglaService.deleteGrupoRegla(grupo.grupoReglaId).subscribe({
+                    next: () => {
+                        this.messageService.add({ severity: 'success', summary: 'Eliminado', detail: 'Grupo eliminado' });
+                        this.loadGrupos();
+                    },
+                    error: (err) => {
+                        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo eliminar' });
+                        console.error(err);
+                    }
+                });
+            }
+        });
+    }
 }

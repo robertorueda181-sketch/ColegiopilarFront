@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Tarifa } from '../models/tarifa.model';
+import { Tarifa, TarifaList } from '../models/tarifa.model';
 import { AppConfigService } from './app-config.service';
 
 @Injectable({
@@ -14,8 +14,12 @@ export class TarifaService {
 
   constructor() { }
 
-  getTarifas(): Observable<Tarifa[]> {
-    return this.http.get<Tarifa[]>(this.apiUrl);
+  getTarifas(): Observable<TarifaList[]> {
+    return this.http.get<TarifaList[]>(this.apiUrl);
+  }
+
+  getTiposTarifa(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.configService.apiBaseUrl}/tipos-tarifa`);
   }
 
   addTarifa(tarifa: Tarifa): Observable<Tarifa> {

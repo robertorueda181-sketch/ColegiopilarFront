@@ -14,46 +14,18 @@ export class ReglaService {
   private grupoReglaUrl = '';
   private grupoReglaListUrl = '';
 
-  // Mock data as fallback if API fails (since localhost might not be running)
-  private mockReglas: Regla[] = [
-    {
-      id: "d40330c9-a728-46e2-9f59-187721a3e1b0",
-      nombre: "Primos",
-      tipoDescuento: "SOLES",
-      valor: 5,
-      prioridad: 2,
-      activa: true
-    },
-    {
-      id: "babfb4be-19eb-4d0e-8f96-1a8f9c2dd43a",
-      nombre: "Hijo de Profesor",
-      tipoDescuento: "SOLES",
-      valor: 30,
-      prioridad: 0,
-      activa: true
-    },
-    {
-      id: "3cfdf44a-8554-47d6-b7aa-46a0feba8881",
-      nombre: "Hermanos",
-      tipoDescuento: "SOLES",
-      valor: 10,
-      prioridad: 1,
-      activa: true
-    }
-  ];
-
   constructor(private http: HttpClient, private configService: AppConfigService) {
-      this.apiUrl = `${this.configService.apiBaseUrl}/reglas`;
-      this.grupoReglaUrl = `${this.configService.apiBaseUrl}/gruporegla`;
-      this.grupoReglaListUrl = `${this.configService.apiBaseUrl}/gruporegla-with-matriculas`;
+    this.apiUrl = `${this.configService.apiBaseUrl}/reglas`;
+    this.grupoReglaUrl = `${this.configService.apiBaseUrl}/gruporegla`;
+    this.grupoReglaListUrl = `${this.configService.apiBaseUrl}/gruporegla-with-matriculas`;
   }
 
   getReglas(): Observable<Regla[]> {
     return this.http.get<Regla[]>(this.apiUrl).pipe(
-        catchError((error) => {
-            console.warn('API Rules unreachable, using mock data', error);
-            return of(this.mockReglas);
-        })
+      catchError((error) => {
+        console.warn('API Rules unreachable, using mock data', error);
+        return of([]);
+      })
     );
   }
 
@@ -70,18 +42,18 @@ export class ReglaService {
   }
 
   upsertGrupoRegla(grupo: GrupoRegla): Observable<any> {
-      return this.http.post(`${this.grupoReglaUrl}/upsert`, grupo);
+    return this.http.post(`${this.grupoReglaUrl}/upsert`, grupo);
   }
 
   getGrupoReglaById(id: number): Observable<GrupoRegla> {
-      return this.http.get<GrupoRegla>(`${this.grupoReglaUrl}/${id}`);
+    return this.http.get<GrupoRegla>(`${this.grupoReglaUrl}/${id}`);
   }
 
   deleteGrupoRegla(id: number): Observable<any> {
-      return this.http.delete(`${this.grupoReglaUrl}/${id}`);
+    return this.http.delete(`${this.grupoReglaUrl}/${id}`);
   }
 
   getGruposReglaWithMatriculas(): Observable<GrupoReglaListDTO[]> {
-      return this.http.get<GrupoReglaListDTO[]>(this.grupoReglaListUrl);
+    return this.http.get<GrupoReglaListDTO[]>(this.grupoReglaListUrl);
   }
 }

@@ -4,5 +4,8 @@ export interface Regla {
     tipoDescuento: 'SOLES' | 'PORCENTAJE';
     valor: number;
     prioridad: number;
+    tipoTarifaId?: number;
+    tipoTarifaDescripcion?: string;
     activa: boolean;
+    esEscalonado?: boolean;
 }

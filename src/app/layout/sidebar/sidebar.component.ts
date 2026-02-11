@@ -19,7 +19,6 @@ export class SidebarComponent {
       submenu: [
         { label: 'Tarifas Anuales', icon: 'pi pi-calendar', route: '/finanzas/tarifas' },
         { label: 'Reglas de Descuento', icon: 'pi pi-tag', route: '/finanzas/reglas' },
-        { label: 'Simulador de Cuotas', icon: 'pi pi-calculator', route: '/finanzas/calculo' },
       ]
     },
     {

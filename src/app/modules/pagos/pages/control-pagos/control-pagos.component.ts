@@ -1,13 +1,14 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, ViewChild } from '@angular/core';
+
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Pago } from '../../../../models/pago.model';
 import { PagoService } from '../../../../services/pago.service';
 import { EstudianteService } from '../../../../services/estudiante.service';
 import { MatriculaService } from '../../../../services/matricula.service';
 import { TarifaService } from '../../../../services/tarifa.service';
-import { Tarifa } from '../../../../models/tarifa.model';
+import { Tarifa, TarifaList } from '../../../../models/tarifa.model';
 
 // PrimeNG
 import { TableModule } from 'primeng/table';
@@ -16,7 +17,8 @@ import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { RadioButtonModule } from 'primeng/radiobutton';
-import { FileUploadModule } from 'primeng/fileupload';
+import { FileUploadModule, FileUpload } from 'primeng/fileupload';
+
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
 import { InputTextModule } from 'primeng/inputtext';
@@ -26,13 +28,15 @@ import { MessageService } from 'primeng/api';
   selector: 'app-control-pagos',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
-    TableModule, 
-    ButtonModule, 
-    DialogModule, 
-    SelectModule, 
-    InputNumberModule, 
+    CommonModule,
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    TableModule,
+    ButtonModule,
+    DialogModule,
+    SelectModule,
+    InputNumberModule,
     RadioButtonModule,
     FileUploadModule,
     TagModule,
@@ -44,18 +48,20 @@ import { MessageService } from 'primeng/api';
   styleUrls: ['./control-pagos.component.css']
 })
 export class ControlPagosComponent implements OnInit {
+  @ViewChild('fileUpload') fileUpload!: FileUpload;
+
   pagos = signal<Pago[]>([]);
-  estudiantes = signal<{label: string, value: number}[]>([]);
+  estudiantes = signal<{ label: string, value: number }[]>([]);
   tiposPago = signal<any[]>([]);
   matriculas = signal<any[]>([]);
-  tarifasOptions = signal<{label:string,value:string|undefined}[]>([]);
+  tarifasOptions = signal<{ label: string, value: string | undefined }[]>([]);
   selectedTarifaId: string | null = null;
   // Raw and filtered matriculas for filtering by nivel/grado
   rawMatriculas = signal<any[]>([]);
   filteredMatriculas = signal<any[]>([]);
-  nivelesOptions = signal<{label:string,value:string}[]>([]);
-  gradosOptions = signal<{label:string,value:string}[]>([]);
-  seccionesOptions = signal<{label:string,value:string}[]>([]);
+  nivelesOptions = signal<{ label: string, value: string }[]>([]);
+  gradosOptions = signal<{ label: string, value: string }[]>([]);
+  seccionesOptions = signal<{ label: string, value: string }[]>([]);
   filtroGrado = signal<string | null>(null);
   filtroNivel = signal<string | null>(null);
   filtroSeccion = signal<string | null>(null);
@@ -63,42 +69,55 @@ export class ControlPagosComponent implements OnInit {
   showFilterSeccion = signal<boolean>(false);
   showFilterNivel = signal<boolean>(false);
   displayDialog = false;
-  
+
   // Form Model
-  selectedEstudiante: number | null = null;
-  selectedMatriculaId: string | null = null;
-  selectedTipoPagoId: number | null = null;
-  monto: number | null = null;
-  tipoPago: 'PARCIAL' | 'TOTAL' = 'PARCIAL';
+  pagoForm!: FormGroup;
   uploadedFile: any = null;
-  observacion: string = '';
 
   searchText: string = '';
+  selectedMatricula = signal<any>(null);
+
+
+  // Historial
+  historialPagos = signal<any[]>([]);
+  displayHistoryDialog = false;
 
   constructor(
-    private pagoService: PagoService,
     private estudianteService: EstudianteService,
     private messageService: MessageService
     , private matriculaService: MatriculaService
     , private tarifaService: TarifaService
     , private http: HttpClient
-  ) {}
+    , private fb: FormBuilder
+  ) {
+    this.initForm();
+  }
 
   ngOnInit() {
 
     this.cargarEstudiantes();
     this.cargarTiposPago();
     // Cargar tarifas para filtro
-    this.tarifaService.getTarifas().subscribe((tars: Tarifa[]) => {
+    this.tarifaService.getTarifas().subscribe((tars: TarifaList[]) => {
       console.log('Tarifas cargadas', tars);
       // Ordenar tarifas por el campo 'order' en forma ascendente
       const tarifasOrdenadas = tars.sort((a, b) => (a.order || 0) - (b.order || 0));
-      const opts = tarifasOrdenadas.map(t => ({ label: `${t.nombre}`, value: t.id }));
+      const opts = tarifasOrdenadas.map(t => ({ label: `${t.descripcion}`, value: t.id }));
       this.tarifasOptions.set(opts);
       if (opts.length > 0 && opts[0].value) {
         this.selectedTarifaId = opts[0].value as string;
         this.cargarMatriculasPorTarifa(this.selectedTarifaId);
       }
+    });
+  }
+
+  initForm() {
+    this.pagoForm = this.fb.group({
+      matriculaId: [null, Validators.required],
+      estudianteId: [null],
+      tipoPagoId: [null, Validators.required],
+      monto: [null, [Validators.required, Validators.min(0)]],
+      observacion: ['']
     });
   }
 
@@ -108,7 +127,7 @@ export class ControlPagosComponent implements OnInit {
     });
   }
 
-  onTarifaChange(id: string|null) {
+  onTarifaChange(id: string | null) {
     this.selectedTarifaId = id;
     if (id != null) this.cargarMatriculasPorTarifa(id);
     else this.matriculas.set([]);
@@ -175,7 +194,7 @@ export class ControlPagosComponent implements OnInit {
   aplicarFiltroSelect(dt: any, field: string, valor: any) {
     // Extract the value from PrimeNG select (which is a {label, value} object)
     const filterValue = valor?.value !== undefined ? valor.value : valor;
-    
+
     // Update the signal
     if (field === 'grado') {
       this.filtroGrado.set(filterValue);
@@ -184,7 +203,7 @@ export class ControlPagosComponent implements OnInit {
     } else if (field === 'seccion') {
       this.filtroSeccion.set(filterValue);
     }
-    
+
     // Apply all filters
     this.applyFilters();
   }
@@ -233,9 +252,9 @@ export class ControlPagosComponent implements OnInit {
       const okNivel = this.filtroNivel() ? i.nivel === this.filtroNivel() : true;
       const okGrado = this.filtroGrado() ? i.grado === this.filtroGrado() : true;
       const okSeccion = this.filtroSeccion() ? i.seccion === this.filtroSeccion() : true;
-      
+
       // Search filter - busca en todos los campos
-      const okSearch = this.searchText === '' || 
+      const okSearch = this.searchText === '' ||
         (i.dni && i.dni.toString().toLowerCase().includes(this.searchText)) ||
         (i.nombres && i.nombres.toLowerCase().includes(this.searchText)) ||
         (i.apellidos && i.apellidos.toLowerCase().includes(this.searchText)) ||
@@ -244,7 +263,7 @@ export class ControlPagosComponent implements OnInit {
         (i.nivel && i.nivel.toLowerCase().includes(this.searchText)) ||
         (i.montoFinal && i.montoFinal.toString().includes(this.searchText)) ||
         (i.pagoMonto && i.pagoMonto.toString().includes(this.searchText));
-      
+
       return okNivel && okGrado && okSeccion && okSearch;
     });
     this.filteredMatriculas.set(filtered);
@@ -253,7 +272,7 @@ export class ControlPagosComponent implements OnInit {
   cargarEstudiantes() {
     this.estudianteService.getEstudiantes().subscribe(data => {
       const options = data.map(e => ({
-        label: `${e.nombres} ${e.apellidos} - ${e.grado} ${e.seccion ? e.seccion : ''}`,
+        label: `${e.nombres} ${e.apellidos} - ${e.grado || ''} ${e.seccion ? e.seccion : ''}`,
         value: e.id,
         // Almacenamos el objeto completo temporalmente si necesitáramos más datos, 
         // pero para el select p-select, structure {label, value} es lo estándar.
@@ -269,82 +288,140 @@ export class ControlPagosComponent implements OnInit {
 
   hideDialog() {
     this.displayDialog = false;
+    this.resetForm();
+  }
+
+  hideHistoryDialog() {
+    this.displayHistoryDialog = false;
   }
 
   onUpload(event: any) {
     // En un caso real, el backend devolvería la URL.
     // Aquí simulamos que obtenemos el archivo.
-    for(let file of event.files) {
-        this.uploadedFile = file;
+    for (let file of event.files) {
+      this.uploadedFile = file;
     }
-    this.messageService.add({severity: 'info', summary: 'Archivo Cargado', detail: 'Imagen/PDF listo para guardar'});
+    this.messageService.add({ severity: 'info', summary: 'Archivo Cargado', detail: 'Imagen/PDF listo para guardar' });
   }
 
   guardarPago() {
-    if (!this.selectedMatriculaId || !this.monto || !this.selectedTipoPagoId) {
-        this.messageService.add({severity: 'error', summary: 'Error', detail: 'Complete los campos obligatorios'});
-        return;
+    if (this.pagoForm.invalid) {
+      this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Complete los campos obligatorios' });
+      this.pagoForm.markAllAsTouched();
+      return;
     }
 
+    const val = this.pagoForm.value;
+    console.log('Datos Formulario:', val);
+
     const formData = new FormData();
-    formData.append('matriculaId', this.selectedMatriculaId);
-    formData.append('tipoPagoId', this.selectedTipoPagoId.toString());
+    formData.append('matriculaId', val.matriculaId);
+    formData.append('tipoPagoId', val.tipoPagoId.toString());
     if (this.selectedTarifaId) {
-        formData.append('tarifaId', this.selectedTarifaId);
+      formData.append('tarifaId', this.selectedTarifaId);
     }
-    formData.append('monto', this.monto.toString());
-    if (this.observacion) {
-        formData.append('observacion', this.observacion);
+    formData.append('monto', val.monto.toString());
+    if (val.observacion) {
+      formData.append('observacion', val.observacion);
     }
     if (this.uploadedFile) {
-        formData.append('file', this.uploadedFile);
+      formData.append('file', this.uploadedFile);
     }
 
     this.http.post('https://localhost:53676/pagos/registrar-detalle', formData).subscribe({
-        next: () => {
-            this.messageService.add({severity: 'success', summary: 'Éxito', detail: 'Pago registrado correctamente'});
-            this.hideDialog();
-            if (this.selectedTarifaId) {
-                this.cargarMatriculasPorTarifa(this.selectedTarifaId);
-            }
-        },
-        error: (err) => {
-            console.error(err);
-            this.messageService.add({severity: 'error', summary: 'Error', detail: 'Error al registrar el pago'});
+      next: () => {
+        this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Pago registrado correctamente' });
+        if (this.selectedTarifaId) {
+          this.cargarMatriculasPorTarifa(this.selectedTarifaId);
         }
+        this.hideDialog();
+      },
+      error: (err) => {
+        console.error(err);
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Error al registrar el pago' });
+      }
     });
   }
 
   pagar(m: any) {
-    this.selectedMatriculaId = m.id;
+    this.resetForm();
+    this.selectedMatricula.set(m);
+    console.log('Matricula seleccionada:', m);
+    // Intentar obtener ID de matricula de id o matriculaId
+    const matId = m.id || m.matriculaId;
+
+    if (!matId) {
+      console.error('No se encontró ID en el objeto matrícula:', m);
+      this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo identificar la matrícula. Ver consola.' });
+      return;
+    }
+
     // Pre-fill the dialog with the remaining amount
     const remaining = (Number(m.montoFinal || 0) - Number(m.pagoMonto || 0));
-    this.monto = remaining > 0 ? remaining : 0;
+
     // Try to find student id by matching name in estudiantes options
     const labelMatch = `${m.nombres} ${m.apellidos}`;
     const found = this.estudiantes().find(e => e.label.startsWith(labelMatch));
-    this.selectedEstudiante = found ? found.value : null;
+
+    this.pagoForm.patchValue({
+      matriculaId: matId,
+      monto: remaining > 0 ? remaining : 0,
+      tipoPagoId: null, // Reset to null or appropriate value
+      estudianteId: found ? found.value : null
+    });
+
     this.displayDialog = true;
   }
 
+  verHistorial(m: any) {
+    console.log('Matricula seleccionada:', m);
+    const id = m.pagoId;
+    if (!id) {
+      this.historialPagos.set([]);
+      this.displayHistoryDialog = true;
+      return;
+    }
+
+    this.selectedMatricula.set(m);
+    this.historialPagos.set([]); // Limpiar anterior
+
+    this.http.get<any>('https://localhost:53676/pagos/' + id + '/detalle').subscribe({
+      next: (data) => {
+        console.log('Historial pagos:', data);
+        if (data && data.detalles) {
+          this.historialPagos.set(data.detalles);
+        } else {
+          this.historialPagos.set([]);
+        }
+        this.displayHistoryDialog = true;
+      },
+      error: (err) => {
+        console.error('Error cargando historial', err);
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar el historial' });
+      }
+    });
+  }
+
   resetForm() {
-    this.selectedEstudiante = null;
-    this.selectedMatriculaId = null;
-    this.selectedTipoPagoId = null;
-    this.monto = null;
-    this.observacion = '';
-    this.tipoPago = 'PARCIAL';
+    this.pagoForm.reset({
+      tipoPagoId: null
+    });
     this.uploadedFile = null;
+    this.selectedMatricula.set(null);
+    if (this.fileUpload) {
+      this.fileUpload.clear();
+    }
   }
 
   getSeverity(estado: string) {
-      switch (estado) {
-          case 'VERIFICADO':
-              return 'success';
-          case 'PENDIENTE':
-              return 'warn';
-          default:
-              return 'info';
-      }
+    if (!estado) return 'info';
+    switch (estado.toUpperCase()) {
+      case 'VERIFICADO':
+        return 'success';
+      case 'PENDIENTE':
+        return 'warn';
+      default:
+        return 'info';
+    }
   }
 }
